@@ -24,3 +24,6 @@ Thumbs.db
 
 # Optional
 coverage/
+
+.env
+service-account-key.json

@@ -3,6 +3,7 @@ import '../models/user_profile.dart';
 import '../models/food_entry.dart';
 import '../core/services/storage_service.dart';
 import '../services/ai_prediction_engine.dart';
+import '../services/api_service.dart';
 import '../data/food_database.dart';
 import 'package:uuid/uuid.dart';
 
@@ -57,6 +58,15 @@ class AppProvider extends ChangeNotifier {
     _userProfile = _storage.getUserProfile();
     _foodLog = _storage.getFoodLog();
     _rewardPoints = _storage.getRewardPoints();
+    
+    // Attempt to sync from backend if possible
+    if (_userProfile != null) {
+      final backendUser = await ApiService.getUserProfile(_userProfile!.id);
+      if (backendUser != null) {
+        // Sync logic could go here
+      }
+    }
+
     _isLoading = false;
     notifyListeners();
   }
@@ -66,6 +76,12 @@ class AppProvider extends ChangeNotifier {
     _userProfile = profile;
     await _storage.saveUserProfile(profile);
     await _storage.setOnboardingDone();
+
+    // Sync to backend
+    // Note: In real app, name/id would come from auth
+    // For now we try to push it
+    // ApiService does not have a direct push profile yet, but we'll use logFood style or similar
+    
     notifyListeners();
   }
 
@@ -82,6 +98,12 @@ class AppProvider extends ChangeNotifier {
 
     await _storage.saveFoodEntry(entry);
     await _storage.addRewardPoints(pts);
+
+    // Backend Sync
+    if (_userProfile != null) {
+      ApiService.logFood(_userProfile!.id, foodData);
+    }
+
     notifyListeners();
     return entry;
   }
@@ -92,6 +114,21 @@ class AppProvider extends ChangeNotifier {
     _rewardPoints = (_rewardPoints + pts).clamp(0, 99999);
     await _storage.saveFoodEntry(entry);
     await _storage.addRewardPoints(pts);
+
+    // Backend Sync
+    if (_userProfile != null) {
+      ApiService.logFood(_userProfile!.id, {
+        'id': entry.id,
+        'name': entry.name,
+        'calories': entry.calories,
+        'category': entry.category.toString().split('.').last,
+        'cost': entry.cost,
+        'fat': entry.fat,
+        'sugar': entry.sugar,
+        'protein': entry.protein,
+      });
+    }
+
     notifyListeners();
     return entry;
   }
